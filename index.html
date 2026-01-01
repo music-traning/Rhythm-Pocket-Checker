@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Rhythm Pocket PRO | v5 Final</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Palette: Cyber Noir */
+            --bg-deep: #050507;
+            --bg-surface: #121216;
+            --bg-card: #1a1a20;
+            
+            /* Accents */
+            --primary: #00f2ff;     
+            --primary-glow: rgba(0, 242, 255, 0.4);
+            --perfect: #00ff9d;     
+            --rush: #ff2a6d;        
+            --drag: #ffae00;        
+            --text-main: #ffffff;
+            --text-muted: #888899;
+            
+            --border: rgba(255, 255, 255, 0.15);
+            --radius-lg: 20px;
+            --radius-sm: 12px;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0; padding: 0;
+            width: 100%; height: 100dvh; 
+            overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+
+        /* --- Layout --- */
+        .app-wrapper {
+            display: flex; flex-direction: column; 
+            flex: 1; 
+            width: 100%;
+            overflow-y: auto; 
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            position: relative; z-index: 1;
+        }
+
+        @media (min-width: 768px) {
+            .app-wrapper {
+                flex-direction: row; padding: 30px; gap: 30px;
+                max-width: 1200px; margin: 0 auto; 
+                overflow-y: hidden;
+            }
+            .panel-left { flex: 1.2; display: flex; flex-direction: column; gap: 20px; }
+            .panel-right { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+            #tap-pad-container { flex: 1; display: flex !important; }
+        }
+
+        /* --- Footer --- */
+        footer {
+            flex-shrink: 0; text-align: center; padding: 8px;
+            background: var(--bg-surface); border-top: 1px solid var(--border);
+            font-size: 0.7rem; z-index: 10; width: 100%;
+        }
+        footer a {
+            color: var(--text-muted); text-decoration: none; font-family: 'JetBrains Mono', monospace;
+            transition: color 0.2s; display: inline-block; padding: 5px;
+        }
+        footer a:hover { color: var(--primary); }
+
+        /* --- Header --- */
+        header {
+            padding: 12px 15px; display: flex; justify-content: space-between; align-items: center;
+            background: var(--bg-surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .brand {
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 1rem;
+            letter-spacing: -0.5px; color: #fff;
+        }
+        .brand span { color: var(--primary); }
+        .lang-switch {
+            font-size: 0.7rem; font-weight: bold; cursor: pointer; color: var(--text-muted); 
+            border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; transition: 0.2s;
+        }
+
+        /* --- Stats Grid --- */
+        .stats-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px;
+            background: var(--bg-deep); flex-shrink: 0;
+        }
+        @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .stat-card {
+            background: var(--bg-surface); padding: 10px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center;
+            cursor: pointer; position: relative; overflow: hidden; min-height: 70px;
+        }
+        .stat-card:active { background: #222; transform: scale(0.98); }
+        .stat-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .stat-val { font-family: 'JetBrains Mono'; font-size: 1.1rem; font-weight: 700; color: #fff; white-space: nowrap; }
+        .stat-icon { position: absolute; right: 8px; bottom: 8px; font-size: 1.2rem; opacity: 0.2; }
+
+        /* --- Visualizer --- */
+        .viz-container {
+            flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            position: relative; background: radial-gradient(circle at center, #1a1a22 0%, #050507 70%); 
+            min-height: 120px;
+        }
+        .feedback-overlay {
+            font-family: 'JetBrains Mono'; font-weight: 800; font-size: 2.5rem;
+            text-shadow: 0 0 20px rgba(0,0,0,0.8); pointer-events: none; transition: transform 0.1s;
+        }
+        .feedback-sub { font-family: 'JetBrains Mono'; color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+        .meter-track {
+            width: 80%; height: 4px; background: #333; border-radius: 2px; position: relative; margin-top: 20px;
+        }
+        .meter-center {
+            position: absolute; left: 50%; top: -6px; bottom: -6px; width: 2px; background: #fff; box-shadow: 0 0 8px #fff;
+        }
+        .meter-cursor {
+            width: 12px; height: 12px; border-radius: 50%; background: #fff;
+            position: absolute; top: 50%; transform: translate(-50%, -50%); left: 50%; display: none; box-shadow: 0 0 10px currentColor;
+        }
+
+        /* --- Controls --- */
+        .controls-bar {
+            background: var(--bg-surface); padding: 15px; border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 15px; flex-shrink: 0;
+        }
+        .mode-switch { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-mode {
+            flex: 1; padding: 10px; border: 1px solid var(--border); background: transparent; 
+            color: var(--text-muted); border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.8rem;
+            transition: 0.2s;
+        }
+        .btn-mode.active { background: var(--primary); color: #000; border-color: var(--primary); }
+
+        .bpm-row { display: flex; align-items: center; justify-content: space-between; }
+        .bpm-display { font-family: 'JetBrains Mono'; font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-mini {
+            width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+            background: #222; color: #fff; display: flex; align-items: center; justify-content: center;
+        }
+        input[type=range] { flex:1; margin: 0 15px; height: 4px; accent-color: var(--primary); }
+        .btn-main {
+            width: 100%; padding: 14px; border-radius: 12px; border: none;
+            background: var(--text-main); color: #000; font-weight: 800; font-size: 1rem;
+            letter-spacing: 1px; cursor: pointer;
+        }
+        .btn-main.playing { background: var(--rush); color: #fff; }
+
+        /* --- Tap Pad --- */
+        #tap-pad-container {
+            flex-grow: 1; min-height: 20vh; padding: 10px 15px 15px 15px;
+            background: var(--bg-deep); display: flex; flex-direction: column;
+        }
+        #tap-pad {
+            flex: 1; background: #1e1e24; border: 2px solid var(--border); border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            cursor: pointer; user-select: none; transition: all 0.1s; position: relative; overflow: hidden;
+            box-shadow: 0 4px 0 #111; min-height: 120px;
+        }
+        #tap-pad:active { transform: translateY(4px); box-shadow: 0 0 0 #111; background: #25252e; border-color: var(--primary); }
+        .tap-icon { font-size: 2rem; margin-bottom: 5px; opacity: 0.5; }
+        .tap-text { font-family: 'JetBrains Mono'; font-weight: 700; letter-spacing: 2px; color: var(--primary); font-size: 1.2rem; text-shadow: 0 0 10px var(--primary-glow); }
+        .tap-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 5px; opacity: 0.7; }
+        .ripple {
+            position: absolute; border-radius: 50%; background: rgba(255,255,255, 0.4);
+            transform: scale(0); animation: ripple-anim 0.4s linear; pointer-events: none;
+        }
+        @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+        /* --- Small Screen Optimization --- */
+        @media screen and (max-width: 400px) and (max-height: 750px) {
+            .stats-grid { gap: 8px; padding: 10px; }
+            .stat-card { min-height: 60px; padding: 8px; }
+            .stat-val { font-size: 1rem; }
+            
+            .viz-container { min-height: 80px; }
+            .feedback-overlay { font-size: 2rem; }
+            .meter-track { margin-top: 15px; }
+
+            .controls-bar { padding: 10px; gap: 10px; }
+            .btn-main { padding: 12px; font-size: 0.9rem; }
+            
+            #tap-pad-container { padding: 5px 10px 10px 10px; min-height: 100px; }
+            .tap-text { font-size: 1rem; }
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-card {
+            background: var(--bg-surface); width: 95%; max-width: 500px; height: 85vh;
+            border-radius: var(--radius-lg); border: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .modal-header {
+            padding: 15px 20px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--bg-card);
+        }
+        .modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* Modal Components */
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin: 25px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .section-header:first-child { margin-top: 0; }
+        .section-title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .btn-add { background: none; border: 1px solid var(--primary); color: var(--primary); border-radius: 4px; font-size: 0.7rem; cursor: pointer; padding: 2px 8px; }
+
+        .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .day-cell { aspect-ratio: 1; border-radius: 4px; background: #222; color: #555; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+        .bpm-stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+        .log-item { padding: 12px; border-radius: 8px; background: #1f1f26; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .log-item:active { background: #333; }
+
+        .detail-view { display: none; flex-direction: column; height: 100%; }
+        .detail-view.active { display: flex; }
+        .detail-card { background: #25252e; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .detail-stat { background: #25252e; padding: 12px; border-radius: 8px; text-align: center; }
+
+    </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+    <div class="panel-left">
+        <header>
+            <div class="brand">Rhythm Pocket <span>PRO</span></div>
+            <div class="lang-switch" onclick="toggleLang()">EN/JP</div>
+        </header>
+
+        <div class="stats-grid" onclick="openStats()">
+            <div class="stat-card">
+                <div class="stat-label" data-i18n="streak">STREAK</div>
+                <div class="stat-val" id="disp-streak">0</div>
+                <div class="stat-icon">🔥</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label" data-i18n="today">TODAY</div>
+                <div class="stat-val" id="disp-today">0m</div>
+                <div class="stat-icon">⏱</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label" data-i18n="best">BEST SCORE</div>
+                <div class="stat-val" style="color:var(--perfect)" id="disp-best">--</div>
+                <div class="stat-icon">🏆</div>
+            </div>
+            <div class="stat-card" style="background:rgba(255,255,255,0.05); border-style:dashed;">
+                <div class="stat-label">ANALYSIS</div>
+                <div class="stat-val" style="font-size:0.9rem; color:var(--primary)">OPEN 📊</div>
+            </div>
+        </div>
+
+        <div class="viz-container">
+            <div class="feedback-overlay" id="feedback-main">READY</div>
+            <div class="feedback-sub" id="feedback-sub">Tap to Start</div>
+            <div class="meter-track">
+                <div class="meter-center"></div>
+                <div class="meter-cursor" id="cursor"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-right">
+        <div class="controls-bar">
+            <div class="mode-switch">
+                <button class="btn-mode active" id="btn-mode-normal" onclick="setMode('normal')">ALL BEATS</button>
+                <button class="btn-mode" id="btn-mode-backbeat" onclick="setMode('backbeat')">2 & 4 ONLY</button>
+            </div>
+
+            <div class="bpm-row">
+                <div class="bpm-display"><span id="bpm-disp">60</span> <span style="font-size:0.8rem; color:#666">BPM</span></div>
+                <div class="btn-group">
+                    <div class="btn-mini" onclick="adjBpm(-1)">-</div>
+                    <div class="btn-mini" onclick="adjBpm(1)">+</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <span style="font-size:0.8rem; color:#666">SLOW</span>
+                <input type="range" id="bpm-slider" min="30" max="240" value="60" oninput="setBpm(this.value)">
+                <span style="font-size:0.8rem; color:#666">FAST</span>
+            </div>
+            <button id="btn-play" class="btn-main" onclick="togglePlay()">
+                <span data-i18n="start">▶ START SESSION</span>
+            </button>
+        </div>
+
+        <div id="tap-pad-container">
+            <div id="tap-pad">
+                <div class="tap-icon">👆</div>
+                <div class="tap-text" data-i18n="tapHere">TAP HERE</div>
+                <div class="tap-sub" data-i18n="tapSub">Tap to the beat</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <a href="https://note.com/jazzy_begin" target="_blank" rel="noopener">©2026 buro</a>
+</footer>
+
+<div class="modal-overlay" id="stats-modal">
+    <div class="modal-card">
+        
+        <div id="view-dashboard" style="display:flex; flex-direction:column; height:100%;">
+            <div class="modal-header">
+                <h3 style="margin:0">📊 Analysis</h3>
+                <button onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:1.5rem;">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <div class="section-header"><div class="section-title">📅 Activity (This Month)</div></div>
+                <div id="heatmap-container" style="margin-bottom:20px;"></div>
+
+                <div class="section-header"><div class="section-title">📊 Mode Comparison</div></div>
+                <div id="mode-analysis" style="margin-bottom:20px;"></div>
+
+                <div class="section-header"><div class="section-title">💡 AI Insights</div></div>
+                <div id="insights-container" style="margin-bottom:20px;"></div>
+
+                <div class="section-header"><div class="section-title">🎯 Challenges</div></div>
+                <div id="challenges-container" style="margin-bottom:20px;"></div>
+
+                <div class="section-header">
+                    <div class="section-title">🏆 Goals</div>
+                    <button class="btn-add" onclick="addRandomGoal()">＋ ADD</button>
+                </div>
+                <div id="goals-container" style="margin-bottom:20px;"></div>
+
+                <div class="section-header"><div class="section-title">📝 Recent Sessions</div></div>
+                <div id="history-list"></div>
+
+                <button onclick="clearData()" style="width:100%; padding:15px; margin-top:20px; background:none; border:1px solid #422; color:#d44; border-radius:8px;">Reset All Data</button>
+            </div>
+        </div>
+
+        <div id="view-detail" class="detail-view">
+            <div class="modal-header" style="background:#25252e;">
+                <button onclick="switchView('dashboard')" style="background:none; border:none; color:var(--primary); font-weight:bold;">← BACK</button>
+                <h3 style="margin:0; font-size:1rem;">Session Detail</h3>
+                <div style="width:50px;"></div>
+            </div>
+            <div class="modal-body">
+                <div id="detail-content"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+/** * RHYTHM POCKET PRO v5.0 - Final Edition */
+
+const DICT = {
+    en: { start: "▶ START SESSION", stop: "■ STOP SESSION", tapHere: "TAP HERE", tapSub: "Tap to the beat", streak: "STREAK", today: "TODAY", best: "BEST %" },
+    ja: { start: "▶ スタート", stop: "■ ストップ", tapHere: "ここをタップ", tapSub: "リズムに合わせて", streak: "連続日数", today: "今日の練習", best: "自己ベスト" }
+};
+let curLang = 'ja';
+const DATA_KEY = 'rp_pro_v5';
+
+// --- State ---
+const state = {
+    bpm: 60, isPlaying: false, soundOn: true,
+    beatCount: 0, nextNoteTime: 0.0, timerID: null,
+    beatHistory: [], 
+    backbeatMode: false,
+    session: { start: 0, diffs: [], bpm: 60, mode: 'normal' }
+};
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// --- CHALLENGES ---
+const CHALLENGES = [
+    { id: 'stability_master', name: 'Stability Master', ja_name: 'ブレない正確さ', description: 'Achieve SD under 3ms', rule: (s) => (s.stdDev||100) <= 3 && s.rate >= 70, reward: '🛡️ Stable', category: 'technical' },
+    { id: 'perfect_streak', name: 'Perfect Streak', ja_name: 'パーフェクト連続', description: '10 consecutive Just hits', rule: (s) => checkConsecutiveJust(s.diffs) >= 10, reward: '⚡ Perfect', category: 'technical' },
+    { id: 'speed_demon', name: 'Speed Demon', ja_name: '高速マスター', description: 'Achieve 80% accuracy at 180+ BPM', rule: (s) => s.bpm >= 180 && s.rate >= 80, reward: '🚀 Speed', category: 'tempo' },
+    { id: 'marathon_master', name: 'Marathon Master', ja_name: 'マラソン完走', description: 'Practice 30+ minutes', rule: (s) => s.duration >= 1800, reward: '🏆 Endurance', category: 'endurance' },
+    { id: 'backbeat_master', name: 'Backbeat Master', ja_name: 'バックビートマスター', description: '裏拍で80%以上の正確性を達成', rule: (s) => s.backbeatStats && s.backbeatStats.backbeatAccuracy >= 80, reward: '🎵 Backbeat', category: 'technical' },
+    { id: 'double_tap_king', name: 'Double Tap King', ja_name: 'ダブルタップ王', description: 'バックビートモードで70%以上の総成功率', rule: (s) => s.mode === 'backbeat' && s.rate >= 70, reward: '👑 Double', category: 'technical' }
+];
+
+// --- Audio ---
+function playClick(time) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    let shouldPlay = true, freq = 1000;
+    if (state.backbeatMode) {
+        if (state.beatCount === 1 || state.beatCount === 3) { shouldPlay = true; freq = 1200; } 
+        else { shouldPlay = false; }
+    } else {
+        freq = (state.beatCount === 0) ? 1600 : 1000; shouldPlay = true;
+    }
+    if (shouldPlay) {
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(1.0, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+        osc.start(time); osc.stop(time + 0.06);
+    }
+}
+
+function scheduler() {
+    while (state.nextNoteTime < audioCtx.currentTime + 0.1) {
+        playClick(state.nextNoteTime);
+        state.beatHistory.push({
+            time: state.nextNoteTime, beatCount: state.beatCount,
+            isBackbeat: (state.beatCount === 1 || state.beatCount === 3)
+        });
+        if(state.beatHistory.length > 20) state.beatHistory.shift();
+        state.nextNoteTime += (60.0 / state.bpm);
+        state.beatCount = (state.beatCount + 1) % 4;
+    }
+    if (state.isPlaying) state.timerID = setTimeout(scheduler, 25);
+}
+
+// --- Interaction ---
+function setMode(mode) {
+    if(state.isPlaying) return;
+    state.backbeatMode = (mode === 'backbeat');
+    document.getElementById('btn-mode-normal').classList.toggle('active', !state.backbeatMode);
+    document.getElementById('btn-mode-backbeat').classList.toggle('active', state.backbeatMode);
+}
+function togglePlay() {
+    if (state.isPlaying) {
+        state.isPlaying = false; clearTimeout(state.timerID);
+        updateUIState(false); saveSession();
+    } else {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        // Hint for first time user
+        if(!localStorage.getItem('rp_firstTime')) {
+            alert(curLang==='ja' ? '💡 ヒント: Spaceキーでもタップできます' : '💡 Tip: You can tap with Space key');
+            localStorage.setItem('rp_firstTime', 'true');
+        }
+
+        state.isPlaying = true; state.beatCount = 0;
+        state.nextNoteTime = audioCtx.currentTime + 0.1; state.beatHistory = [];
+        state.session = { start: Date.now(), bpm: state.bpm, diffs: [], mode: state.backbeatMode ? 'backbeat' : 'normal' };
+        updateUIState(true); scheduler();
+    }
+}
+function handleTap(e) {
+    if(e) e.preventDefault(); createRipple(e);
+    if (!state.isPlaying) return;
+    const tapTime = audioCtx.currentTime;
+    let closestBeat = null; let minDiff = Infinity;
+    state.beatHistory.forEach(b => {
+        const d = tapTime - b.time;
+        if (Math.abs(d) < Math.abs(minDiff)) { minDiff = d; closestBeat = b; }
+    });
+    if (Math.abs(minDiff) > (60/state.bpm)/1.5) return;
+    const ms = Math.round(minDiff * 1000);
+    state.session.diffs.push({
+        offset: ms, beatType: closestBeat?.isBackbeat ? 'backbeat' : 'downbeat',
+        beatCount: closestBeat?.beatCount
+    });
+    visualFeedback(ms);
+}
+
+// --- Data ---
+function saveSession() {
+    const diffs = state.session.diffs;
+    if (diffs.length < 5) {
+        if(diffs.length > 0) alert(curLang==='ja'?'⚠️ 少なくとも5回タップしてください':'⚠️ Please tap at least 5 times');
+        return;
+    }
+    const offsets = diffs.map(d => d.offset);
+    const justCnt = offsets.filter(d => Math.abs(d) <= 25).length;
+    const earlyCount = offsets.filter(d => d < -25).length;
+    const lateCount = offsets.filter(d => d > 25).length;
+    const avgOffset = Math.round(offsets.reduce((a,b)=>a+b,0)/offsets.length);
+    const mean = avgOffset;
+    const variance = offsets.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / offsets.length;
+    const stdDev = Math.round(Math.sqrt(variance));
+    const rate = Math.round((justCnt / offsets.length) * 100);
+
+    let backbeatStats = null;
+    if (state.session.mode === 'backbeat') {
+        const bb = diffs.filter(d => d.beatType === 'backbeat').map(d => d.offset);
+        const db = diffs.filter(d => d.beatType === 'downbeat').map(d => d.offset);
+        if(bb.length > 0 && db.length > 0) {
+            backbeatStats = {
+                backbeatCount: bb.length, backbeatAccuracy: Math.round(bb.filter(d => Math.abs(d) <= 25).length / bb.length * 100),
+                downbeatCount: db.length, downbeatAccuracy: Math.round(db.filter(d => Math.abs(d) <= 25).length / db.length * 100)
+            };
+        }
+    }
+
+    const log = {
+        id: `sess_${Date.now()}`, date: new Date().toISOString(), bpm: state.session.bpm, mode: state.session.mode,
+        rate, duration: Math.round((Date.now() - state.session.start)/1000),
+        tapCount: diffs.length, justCount: justCnt, earlyCount, lateCount, avgOffset, stdDev, diffs: offsets, backbeatStats
+    };
+    const h = getHistory(); h.push(log);
+    localStorage.setItem(DATA_KEY, JSON.stringify(h));
+    
+    // Session Result Alert
+    setTimeout(() => {
+        let msg = `✅ Session Complete!\n\nAccuracy: ${rate}%\nStability: ${stdDev}ms\n\n`;
+        if(rate >= 90) msg += '🏆 Outstanding!'; else if(rate >= 80) msg += '👏 Great Job!'; else msg += '💪 Keep Practicing!';
+        alert(msg);
+    }, 300);
+
+    checkChallenges(); checkGoals(); updateDashboard();
+}
+
+// --- Visuals ---
+function renderHeatmap(history) {
+    const today = new Date();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const dateMap = {}; history.forEach(s => { const d = s.date.split('T')[0]; if(!dateMap[d]) dateMap[d]=[]; dateMap[d].push(s.rate); });
+    let html = `<div class="heatmap-grid">`;
+    for(let i=1; i<=daysInMonth; i++) {
+        const dStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        const rates = dateMap[dStr];
+        let style = "", content = i;
+        if(rates) {
+            const avg = rates.reduce((a,b)=>a+b,0)/rates.length;
+            style = `background: rgba(0, 242, 255, ${0.2 + (avg/100)*0.8}); color:#000; font-weight:bold;`;
+        }
+        html += `<div class="day-cell" style="${style}">${content}</div>`;
+    }
+    html += `</div>`;
+    document.getElementById('heatmap-container').innerHTML = html;
+}
+function renderModeAnalysis() {
+    const h = getHistory();
+    const normalS = h.filter(s => s.mode !== 'backbeat');
+    const bbS = h.filter(s => s.mode === 'backbeat');
+    const nAvg = normalS.length>0 ? Math.round(normalS.reduce((a,s)=>a+s.rate,0)/normalS.length) : 0;
+    const bAvg = bbS.length>0 ? Math.round(bbS.reduce((a,s)=>a+s.rate,0)/bbS.length) : 0;
+    document.getElementById('mode-analysis').innerHTML = `
+    <div style="background:#25252e; padding:12px; border-radius:8px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div style="text-align:center;"><div style="color:var(--primary); font-weight:bold; font-size:0.8rem; margin-bottom:5px;">ALL BEATS</div><div style="font-size:1.5rem; font-weight:bold;">${nAvg}%</div><div style="font-size:0.65rem; color:#666;">${normalS.length} sessions</div></div>
+        <div style="text-align:center;"><div style="color:var(--drag); font-weight:bold; font-size:0.8rem; margin-bottom:5px;">2 & 4 ONLY</div><div style="font-size:1.5rem; font-weight:bold;">${bAvg}%</div><div style="font-size:0.65rem; color:#666;">${bbS.length} sessions</div></div>
+    </div>`;
+}
+
+// --- NEW: Insights ---
+function generateInsights() {
+    const h = getHistory(); if(h.length < 3) return [];
+    const insights = [];
+    const normal = h.filter(s => s.mode !== 'backbeat'), backbeat = h.filter(s => s.mode === 'backbeat');
+    if(normal.length>0 && backbeat.length>0) {
+        const nAvg = normal.reduce((a,s)=>a+s.rate,0)/normal.length, bAvg = backbeat.reduce((a,s)=>a+s.rate,0)/backbeat.length;
+        if(nAvg > bAvg+10) insights.push({emoji:'📚', ja:`2&4より通常モードが得意です (${Math.round(nAvg)}% vs ${Math.round(bAvg)}%)`, en:`Better at All Beats (${Math.round(nAvg)}% vs ${Math.round(bAvg)}%)`});
+        else if(bAvg > nAvg+10) insights.push({emoji:'🎵', ja:`裏拍(2&4)が得意です！ (${Math.round(bAvg)}% vs ${Math.round(nAvg)}%)`, en:`Excelling at Backbeats! (${Math.round(bAvg)}% vs ${Math.round(nAvg)}%)`});
+    }
+    const recentSD = h.slice(-5).reduce((a,s)=>a+(s.stdDev||0),0)/Math.min(5,h.length);
+    if(recentSD <= 5) insights.push({emoji:'🛡️', ja:`非常に安定しています (SD ${Math.round(recentSD)}ms)`, en:`Very Stable (SD ${Math.round(recentSD)}ms)`});
+    else if(recentSD > 15) insights.push({emoji:'⚡', ja:`ばらつきが大きいです (SD ${Math.round(recentSD)}ms)`, en:`High Variance (SD ${Math.round(recentSD)}ms)`});
+    
+    const bpmMap = {}; h.forEach(s => { if(!bpmMap[s.bpm]) bpmMap[s.bpm]=[]; bpmMap[s.bpm].push(s.rate); });
+    const bpmStats = Object.entries(bpmMap).map(([b,r])=>({bpm:b, avg:r.reduce((a,c)=>a+c,0)/r.length})).sort((a,b)=>b.avg-a.avg);
+    if(bpmStats.length>0) insights.push({emoji:'💪', ja:`得意: ${bpmStats[0].bpm} BPM (${Math.round(bpmStats[0].avg)}%)`, en:`Best at ${bpmStats[0].bpm} BPM (${Math.round(bpmStats[0].avg)}%)`});
+    
+    return insights;
+}
+function renderInsights() {
+    const list = generateInsights(); const el = document.getElementById('insights-container');
+    if(list.length===0){el.innerHTML='<div style="text-align:center; color:#666; font-size:0.8rem">Collect more data...</div>'; return;}
+    el.innerHTML = list.map(i => `<div style="background:#25252e; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; gap:10px; align-items:center;"><div style="font-size:1.3rem; flex-shrink:0;">${i.emoji}</div><div style="font-size:0.85rem; color:#ddd;">${curLang === 'ja' ? i.ja : i.en}</div></div>`).join('');
+}
+
+// --- NEW: Goals ---
+function checkGoals() {
+    const goals = JSON.parse(localStorage.getItem('rp_goals') || '[]'); const h = getHistory(); if(h.length===0)return;
+    const last = h[h.length-1];
+    goals.forEach(g => {
+        if(g.completed) return;
+        if(g.type === 'rate_at_bpm') {
+            if(last.bpm === g.params.bpm && last.rate >= g.params.rate) { g.completed = true; alert(`🎯 Goal Achieved!\n${g.params.rate}% at ${g.params.bpm} BPM`); }
+            const best = h.filter(s => s.bpm === g.params.bpm).reduce((a,b) => Math.max(a, b.rate), 0);
+            g.progress = Math.min(100, (best / g.params.rate) * 100);
+        } else if(g.type === 'streak') {
+            const dates = [...new Set(h.map(s => s.date.split('T')[0]))];
+            if(dates.length >= g.params.days) { g.completed = true; alert(`🔥 Streak Achieved!\n${g.params.days} days!`); }
+            g.progress = Math.min(100, (dates.length / g.params.days) * 100);
+        }
+    });
+    localStorage.setItem('rp_goals', JSON.stringify(goals));
+}
+function renderGoals() {
+    const goals = JSON.parse(localStorage.getItem('rp_goals') || '[]'); const active = goals.filter(g => !g.completed);
+    if(active.length===0){document.getElementById('goals-container').innerHTML = '<div style="text-align:center; color:#666; font-size:0.8rem; padding:15px;">Add goals to track progress</div>'; return;}
+    let html = ''; active.forEach(g => {
+        const label = g.type === 'rate_at_bpm' ? `${g.params.rate}% at ${g.params.bpm} BPM` : `${g.params.days} Days Streak`;
+        html += `<div style="background:#25252e; padding:12px; border-radius:8px; margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><div style="color:#fff; font-weight:bold; font-size:0.9rem;">${label}</div><div style="color:var(--primary); font-weight:bold;">${Math.round(g.progress)}%</div></div><div style="background:#111; height:4px; border-radius:2px; overflow:hidden;"><div style="background:linear-gradient(90deg, var(--primary), var(--perfect)); height:100%; width:${g.progress}%; border-radius:2px;"></div></div></div>`;
+    });
+    document.getElementById('goals-container').innerHTML = html;
+}
+function addRandomGoal() {
+    const goals = JSON.parse(localStorage.getItem('rp_goals') || '[]');
+    const templates = [ { type:'rate_at_bpm', params:{bpm:60, rate:90} }, { type:'rate_at_bpm', params:{bpm:120, rate:85} }, { type:'streak', params:{days:7} } ];
+    const pick = templates[Math.floor(Math.random()*templates.length)];
+    goals.push({ id:Date.now(), type:pick.type, params:pick.params, progress:0, completed:false });
+    localStorage.setItem('rp_goals', JSON.stringify(goals)); renderGoals();
+}
+
+function openStats() {
+    document.getElementById('stats-modal').classList.add('open');
+    const h = getHistory();
+    renderHeatmap(h); renderModeAnalysis(); renderInsights(); renderChallenges(); renderGoals();
+    document.getElementById('history-list').innerHTML = h.slice().reverse().slice(0, 10).map(s => `
+        <div class="log-item" onclick="openSessionDetail('${s.id}')">
+            <div><strong style="color:#fff">${s.bpm} BPM</strong> <span style="font-size:0.75rem; color:var(--primary); margin-left:5px;">${s.mode==='backbeat'?'(2&4)':'(ALL)'}</span> <span style="color:#666; font-size:0.75rem; margin-left:8px;">${s.date.slice(5,10)}</span></div>
+            <div style="text-align:right"><div style="color:${s.rate>=80?'var(--perfect)':'#aaa'}; font-weight:bold;">${s.rate}%</div></div>
+        </div>`).join('');
+    switchView('dashboard');
+}
+
+function openSessionDetail(id) {
+    const s = getHistory().find(x => x.id === id); if(!s) return;
+    const d = new Date(s.date);
+    let html = `
+        <div class="detail-card"><div style="display:flex; justify-content:space-between;"><div><div style="color:#888; font-size:0.75rem;">Date</div><div style="color:#fff">${d.toLocaleString()}</div></div><div style="text-align:right;"><div style="color:#888; font-size:0.75rem;">Mode</div><div style="color:var(--primary); font-weight:bold;">${s.mode==='backbeat'?'2 & 4':'ALL BEATS'}</div></div></div></div>
+        <div class="detail-grid"><div class="detail-stat"><div style="color:#888; font-size:0.7rem">ACCURACY</div><div style="font-size:1.8rem; font-weight:bold; color:${s.rate>80?'var(--perfect)':'#fff'}">${s.rate}%</div></div><div class="detail-stat"><div style="color:#888; font-size:0.7rem">STABILITY</div><div style="font-size:1.8rem; font-weight:bold; color:var(--primary)">${s.stdDev||'--'}ms</div></div></div>
+        <div class="detail-card"><div style="font-size:0.75rem; color:#888; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px;">TAP BREAKDOWN</div><div style="display:flex; justify-content:space-around; text-align:center;">
+        <div><div style="font-size:1.2rem; color:var(--rush); font-weight:bold;">${s.earlyCount||0}</div><div style="font-size:0.7rem; color:#666">EARLY</div></div><div><div style="font-size:1.5rem; color:var(--perfect); font-weight:bold;">${s.justCount||0}</div><div style="font-size:0.7rem; color:#666">JUST</div></div><div><div style="font-size:1.2rem; color:var(--drag); font-weight:bold;">${s.lateCount||0}</div><div style="font-size:0.7rem; color:#666">LATE</div></div></div></div>`;
+    if(s.backbeatStats) html += `<div class="detail-card"><div style="font-size:0.75rem; color:#888; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px;">2 & 4 DETAILS</div><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><div style="text-align:center;"><div style="font-size:0.7rem; color:#666; margin-bottom:5px;">On-beat (1,3)</div><div style="font-size:1.2rem; color:var(--primary); font-weight:bold;">${s.backbeatStats.downbeatAccuracy}%</div></div><div style="text-align:center;"><div style="font-size:0.7rem; color:#666; margin-bottom:5px;">Off-beat (2,4)</div><div style="font-size:1.2rem; color:var(--drag); font-weight:bold;">${s.backbeatStats.backbeatAccuracy}%</div></div></div></div>`;
+    document.getElementById('detail-content').innerHTML = html;
+    switchView('detail');
+}
+
+// --- Utils ---
+function checkConsecutiveJust(o){let m=0,c=0;o.forEach(d=>{if(Math.abs(d)<=25){c++;m=Math.max(m,c)}else c=0});return m;}
+function checkChallenges(){const h=getHistory(),l=h[h.length-1],a=JSON.parse(localStorage.getItem('rp_achievements')||'[]');CHALLENGES.forEach(c=>{if(!a.includes(c.id)){try{if(c.rule(l,h)){a.push(c.id);alert('🏆 '+c.reward)}}catch(e){}}});localStorage.setItem('rp_achievements',JSON.stringify(a));}
+function renderChallenges(){const a=JSON.parse(localStorage.getItem('rp_achievements')||'[]');const cat={};CHALLENGES.forEach(c=>{if(!cat[c.category])cat[c.category]=[];cat[c.category].push(c)});let h="";Object.entries(cat).forEach(([k,v])=>{h+=`<div style="margin-bottom:10px; font-size:0.7rem; color:#888; font-weight:bold">${k.toUpperCase()}</div>`;v.forEach(c=>{const u=a.includes(c.id);h+=`<div style="background:${u?'#25302e':'#222'}; padding:8px; border-radius:6px; margin-bottom:4px; display:flex; justify-content:space-between; opacity:${u?1:0.6}; border:1px solid ${u?'var(--perfect)':'#333'}"><div>${c.reward} ${curLang==='ja'?c.ja_name:c.name}</div><div>${u?'✓':'○'}</div></div>`})});document.getElementById('challenges-container').innerHTML=h;}
+function switchView(v){document.getElementById('view-dashboard').style.display=v==='dashboard'?'flex':'none';document.getElementById('view-detail').classList.toggle('active',v==='detail');}
+function closeModal(){document.getElementById('stats-modal').classList.remove('open');}
+function clearData(){if(confirm('Reset?')){localStorage.removeItem(DATA_KEY);closeModal();updateDashboard();}}
+function getHistory(){return JSON.parse(localStorage.getItem(DATA_KEY)||'[]');}
+function updateDashboard(){const h=getHistory();if(h.length===0)return;document.getElementById('disp-today').textContent=Math.floor(h.filter(x=>x.date.startsWith(new Date().toISOString().split('T')[0])).reduce((a,b)=>a+(b.duration||0),0)/60)+"m";const b=[...h].sort((a,b)=>b.rate-a.rate)[0];if(b)document.getElementById('disp-best').textContent=b.rate+"%";const d=[...new Set(h.map(x=>x.date.split('T')[0]))];document.getElementById('disp-streak').textContent=d.length+" Days";}
+function updateUIState(p){const d=DICT[curLang];document.getElementById('btn-play').innerHTML=p?`<span>${d.stop}</span>`:`<span>${d.start}</span>`;document.getElementById('btn-play').classList.toggle('playing',p);document.getElementById('feedback-main').textContent=p?"LISTEN...":"READY";if(!p)document.getElementById('cursor').style.display='none';}
+function visualFeedback(ms){const abs=Math.abs(ms);const fb=document.getElementById('feedback-main');let l="JUST",c="var(--perfect)";if(abs>25){if(ms<0){l="EARLY";c="var(--rush)"}else{l="LATE";c="var(--drag)"}}fb.textContent=l;fb.style.color=c;fb.style.transform="scale(1.2)";setTimeout(()=>fb.style.transform="scale(1)",100);document.getElementById('feedback-sub').textContent=`${ms>0?'+':''}${ms}ms`;const pct=Math.max(-50,Math.min(50,(ms/80)*50));const cur=document.getElementById('cursor');cur.style.display='block';cur.style.background=c;cur.style.left=`calc(50% + ${pct}%)`;}
+function createRipple(e){const p=document.getElementById('tap-pad');const r=document.createElement("span");r.className="ripple";const rect=p.getBoundingClientRect();let x,y;if(e.type.includes('touch')){x=e.touches[0].clientX-rect.left;y=e.touches[0].clientY-rect.top}else{x=e.clientX-rect.left;y=e.clientY-rect.top}const s=Math.max(rect.width,rect.height);r.style.width=r.style.height=`${s}px`;r.style.left=`${x-s/2}px`;r.style.top=`${y-s/2}px`;p.appendChild(r);setTimeout(()=>r.remove(),400);}
+function setBpm(v){state.bpm=parseInt(v);document.getElementById('bpm-disp').textContent=state.bpm;document.getElementById('bpm-slider').value=state.bpm;}
+function adjBpm(d){setBpm(Math.max(30,Math.min(240,state.bpm+d)));}
+function toggleLang(){curLang=curLang==='en'?'ja':'en';const d=DICT[curLang];document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=d[el.getAttribute('data-i18n')]);}
+function cleanupOldData(){const h=getHistory();const old=new Date();old.setMonth(old.getMonth()-1);const n=h.filter(s=>new Date(s.date)>old);if(n.length<h.length)localStorage.setItem(DATA_KEY,JSON.stringify(n));}
+
+(function init(){ updateDashboard(); toggleLang(); toggleLang(); cleanupOldData();
+    window.addEventListener('keydown', e=>{if(e.code==='Space'){e.preventDefault(); if(!state.isPlaying)togglePlay();else handleTap(e);}});
+    const p=document.getElementById('tap-pad'); p.addEventListener('touchstart', handleTap, {passive:false}); p.addEventListener('mousedown', handleTap);
+})();
+</script>
+</body>
+</html>
